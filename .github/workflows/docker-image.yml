@@ -41,8 +41,22 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             set -e
-            cd /home/rushi/multi-client-swarm
+            cd /home/cicd/multi-client-swarm
+
+            echo "Removing old stack..."
+            docker stack rm multi-client || true
+            sleep 15
+
+            echo "Cleaning old resources..."
+            docker image prune -af
+            docker container prune -f
+
+            echo "Pulling latest images..."
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+
+            echo "Deploying stack..."
             docker stack deploy -c docker-stack.yaml multi-client
+
+            echo "Deployment complete"
             docker service ls
