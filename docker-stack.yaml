@@ -24,7 +24,7 @@ services:
           - node.role == manager
 
   client-a:
-    image: client-a:latest   # ✅ FIXED
+    image: rushid03/client-a:latest   # ✅ FIXED
     networks:
       - app-network
     secrets:
@@ -38,11 +38,11 @@ services:
         delay: 10s
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`client-a.local`) || Host(`43.204.218.55`)"
+        - "traefik.http.routers.client-a.rule=Host(`43.204.218.55`)"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
 
   client-b:
-    image: client-b:latest   # ✅ FIXED
+    image: rushid03/client-b:latest   # ✅ FIXED
     networks:
       - app-network
     secrets:
@@ -56,7 +56,7 @@ services:
         delay: 10s
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-b.rule=Host(`client-b.local`) || Host(`43.204.218.55`)"
+        - "traefik.http.routers.client-b.rule=Host(`43.204.218.55`)"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
 
 secrets:
