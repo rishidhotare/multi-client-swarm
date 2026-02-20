@@ -33,6 +33,16 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
 
+      # ✅ NEW STEP — Copy stack file to EC2
+      - name: Copy docker-stack.yaml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          source: "docker-stack.yaml"
+          target: "/home/cicd/multi-client-swarm"
+
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -41,21 +51,17 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             set -e
-            cd /home/cicd/multi-client-swarm
+            cd /home/rushi/multi-client-swarm
 
             echo "Removing old stack..."
             docker stack rm multi-client || true
             sleep 15
 
-            echo "Cleaning old resources..."
-            docker image prune -af
-            docker container prune -f
-
             echo "Pulling latest images..."
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
 
-            echo "Deploying stack..."
+            echo "Deploying updated stack..."
             docker stack deploy -c docker-stack.yaml multi-client
 
             echo "Deployment complete"
