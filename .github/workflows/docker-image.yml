@@ -51,7 +51,7 @@ jobs:
           script: |
             set -e
 
-            cd /home/devops/multi-client-swarm
+            cd /home/rushi/multi-client-swarm
 
             echo "Pulling latest images..."
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
