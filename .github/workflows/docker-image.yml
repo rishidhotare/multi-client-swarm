@@ -1,66 +1,48 @@
-version: "3.9"
+name: CI/CD - Multi Client Swarm Deploy
 
-networks:
-  app-network:
-    driver: overlay
+on:
+  push:
+    branches:
+      - main
 
-services:
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
 
-  traefik:
-    image: traefik:v2.10
-    command:
-      - --providers.docker.swarmMode=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-    ports:
-      - 80:80
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - app-network
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  client-a:
-    image: rushid03/client-a:latest   # ✅ FIXED
-    networks:
-      - app-network
-    secrets:
-      - client_a_db
-    deploy:
-      replicas: 3
-      restart_policy:
-        condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`43.204.218.55`)"
-        - "traefik.http.services.client-a.loadbalancer.server.port=3000"
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-  client-b:
-    image: rushid03/client-b:latest   # ✅ FIXED
-    networks:
-      - app-network
-    secrets:
-      - client_b_db
-    deploy:
-      replicas: 3
-      restart_policy:
-        condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.client-b.rule=Host(`43.204.218.55`)"
-        - "traefik.http.services.client-b.loadbalancer.server.port=8000"
+      - name: Build & Push Client A
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client-a-node
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
 
-secrets:
-  client_a_db:
-    external: true
-  client_b_db:
-    external: true
+      - name: Build & Push Client B
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client-b-python
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            set -e
+            cd /home/rushi/multi-client-swarm
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+            docker stack deploy -c docker-stack.yaml multi-client
+            docker service ls
