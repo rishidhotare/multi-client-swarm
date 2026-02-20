@@ -10,8 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Debug - List Files
+        run: ls -R
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -19,21 +22,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      # ===============================
+      # BUILD CLIENT A
+      # ===============================
       - name: Build & Push Client A
-        uses: docker/build-push-action@v5
-        with:
-          context: ./client-a-node
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest ./client-a-node
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
 
+      # ===============================
+      # BUILD CLIENT B
+      # ===============================
       - name: Build & Push Client B
-        uses: docker/build-push-action@v5
-        with:
-          context: ./client-b-python
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest ./client-b-python
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
 
-      # ✅ NEW STEP — Copy stack file to EC2
+      # ===============================
+      # COPY STACK FILE
+      # ===============================
       - name: Copy docker-stack.yaml to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -41,9 +48,12 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           source: "docker-stack.yaml"
-          target: "/home/cicd/multi-client-swarm"
+          target: "/home/rushi/multi-client-swarm"
 
-      - name: Deploy to EC2 via SSH
+      # ===============================
+      # DEPLOY TO SWARM
+      # ===============================
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -61,8 +71,10 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
 
-            echo "Deploying updated stack..."
+            echo "Deploying stack..."
             docker stack deploy -c docker-stack.yaml multi-client
 
-            echo "Deployment complete"
+            echo "Waiting for services..."
+            sleep 10
+
             docker service ls
