@@ -9,12 +9,15 @@ services:
   traefik:
     image: traefik:v2.10
     command:
+      - --providers.docker=true
       - --providers.docker.swarmMode=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=app-network
       - --entrypoints.web.address=:80
+      - --api.insecure=true
     ports:
       - "80:80"
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -34,14 +37,13 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=app-network"
-        - "traefik.http.routers.client-a.rule=Host(`43.204.218.55`) && PathPrefix(`/a`)"
+        - "traefik.http.routers.client-a.rule=PathPrefix(`/a`)"
         - "traefik.http.routers.client-a.entrypoints=web"
+        - "traefik.http.middlewares.client-a-strip.stripprefix.prefixes=/a"
+        - "traefik.http.routers.client-a.middlewares=client-a-strip"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
 
   client-b:
@@ -54,14 +56,13 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=app-network"
-        - "traefik.http.routers.client-b.rule=Host(`43.204.218.55`) && PathPrefix(`/b`)"
+        - "traefik.http.routers.client-b.rule=PathPrefix(`/b`)"
         - "traefik.http.routers.client-b.entrypoints=web"
+        - "traefik.http.middlewares.client-b-strip.stripprefix.prefixes=/b"
+        - "traefik.http.routers.client-b.middlewares=client-b-strip"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
 
 secrets:
