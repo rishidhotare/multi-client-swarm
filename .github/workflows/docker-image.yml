@@ -80,6 +80,9 @@ jobs:
 
             cd /home/rushi/multi-client-swarm
 
+            docker system prune -af
+            sleep 10
+            
             echo "Deploying stack: $STACK_NAME"
             echo "Using Image Tag: $IMAGE_TAG"
 
