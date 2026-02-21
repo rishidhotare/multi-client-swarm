@@ -3,6 +3,7 @@ version: "3.9"
 networks:
   app-network:
     driver: overlay
+    attachable: true   # ✅ Important for Swarm
 
 volumes:
   traefik-certificates:
@@ -11,16 +12,17 @@ volumes:
 
 services:
 
+  # ---------------- TRAEFIK ----------------
   traefik:
     image: traefik:v2.10
     ports:
       - "80:80"
       - "443:443"
+    networks:
+      - app-network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-certificates:/letsencrypt
-    networks:
-      - app-network
     deploy:
       placement:
         constraints:
@@ -32,10 +34,16 @@ services:
       - --providers.docker.network=app-network
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --certificatesresolvers.myresolver.acme.tlschallenge=true
       - --certificatesresolvers.myresolver.acme.email=your@email.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    configs:
+      - source: traefik-acme
+        target: /letsencrypt/acme.json
 
+  # ---------------- CLIENT A ----------------
   client-a:
     image: rushid03/client-a:${IMAGE_TAG}
     networks:
@@ -58,11 +66,12 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`client-a.example.com`)"
+        - "traefik.http.routers.client-a.rule=Host(`client-a.yourdomain.com`)"
         - "traefik.http.routers.client-a.entrypoints=websecure"
         - "traefik.http.routers.client-a.tls.certresolver=myresolver"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
 
+  # ---------------- CLIENT B ----------------
   client-b:
     image: rushid03/client-b:${IMAGE_TAG}
     networks:
@@ -85,7 +94,7 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-b.rule=Host(`client-b.example.com`)"
+        - "traefik.http.routers.client-b.rule=Host(`client-b.yourdomain.com`)"
         - "traefik.http.routers.client-b.entrypoints=websecure"
         - "traefik.http.routers.client-b.tls.certresolver=myresolver"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
@@ -95,3 +104,7 @@ secrets:
     external: true
   client_b_db:
     external: true
+
+configs:
+  traefik-acme:
+    file: ./acme.json
