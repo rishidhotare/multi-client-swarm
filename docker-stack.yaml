@@ -4,65 +4,94 @@ networks:
   app-network:
     driver: overlay
 
+volumes:
+  traefik-certificates:
+  client-a-data:
+  client-b-data:
+
+configs:
+  traefik-config:
+    file: ./traefik.yml
+
 services:
 
   traefik:
     image: traefik:v2.10
-    command:
-      - --providers.docker=true
-      - --providers.docker.swarmMode=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=app-network
-      - --entrypoints.web.address=:80
-      - --api.insecure=true
     ports:
       - "80:80"
-      - "8080:8080"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certificates:/letsencrypt
     networks:
       - app-network
     deploy:
       placement:
         constraints:
           - node.role == manager
+    command:
+      - --providers.docker=true
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=app-network
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.tlschallenge=true
+      - --certificatesresolvers.myresolver.acme.email=your@email.com
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
 
   client-a:
-    image: rushid03/client-a:latest
+    image: rushid03/client-a:${IMAGE_TAG}
     networks:
       - app-network
+    volumes:
+      - client-a-data:/data
     secrets:
       - client_a_db
     deploy:
       replicas: 3
       restart_policy:
         condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.docker.network=app-network"
-        - "traefik.http.routers.client-a.rule=PathPrefix(`/a`)"
-        - "traefik.http.routers.client-a.entrypoints=web"
-        - "traefik.http.middlewares.client-a-strip.stripprefix.prefixes=/a"
-        - "traefik.http.routers.client-a.middlewares=client-a-strip"
+        - "traefik.http.routers.client-a.rule=Host(`client-a.example.com`)"
+        - "traefik.http.routers.client-a.entrypoints=websecure"
+        - "traefik.http.routers.client-a.tls.certresolver=myresolver"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
 
   client-b:
-    image: rushid03/client-b:latest
+    image: rushid03/client-b:${IMAGE_TAG}
     networks:
       - app-network
+    volumes:
+      - client-b-data:/data
     secrets:
       - client_b_db
     deploy:
       replicas: 3
       restart_policy:
         condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.docker.network=app-network"
-        - "traefik.http.routers.client-b.rule=PathPrefix(`/b`)"
-        - "traefik.http.routers.client-b.entrypoints=web"
-        - "traefik.http.middlewares.client-b-strip.stripprefix.prefixes=/b"
-        - "traefik.http.routers.client-b.middlewares=client-b-strip"
+        - "traefik.http.routers.client-b.rule=Host(`client-b.example.com`)"
+        - "traefik.http.routers.client-b.entrypoints=websecure"
+        - "traefik.http.routers.client-b.tls.certresolver=myresolver"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
 
 secrets:
