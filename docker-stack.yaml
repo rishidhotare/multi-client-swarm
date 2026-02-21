@@ -39,9 +39,7 @@ services:
       - --certificatesresolvers.myresolver.acme.tlschallenge=true
       - --certificatesresolvers.myresolver.acme.email=your@email.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-    configs:
-      - source: traefik-acme
-        target: /letsencrypt/acme.json
+
 
   # ---------------- CLIENT A ----------------
   client-a:
@@ -105,6 +103,4 @@ secrets:
   client_b_db:
     external: true
 
-configs:
-  traefik-acme:
-    file: ./acme.json
+
