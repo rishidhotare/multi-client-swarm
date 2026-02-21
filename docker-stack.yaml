@@ -64,7 +64,7 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`client-a.yourdomain.com`)"
+        - "traefik.http.routers.client-a.rule=Host(`client-b.rushidapps.com`)"
         - "traefik.http.routers.client-a.entrypoints=websecure"
         - "traefik.http.routers.client-a.tls.certresolver=myresolver"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
@@ -92,7 +92,7 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-b.rule=Host(`client-b.yourdomain.com`)"
+        - "traefik.http.routers.client-a.rule=Host(`client-b.rushidapps.com`)"
         - "traefik.http.routers.client-b.entrypoints=websecure"
         - "traefik.http.routers.client-b.tls.certresolver=myresolver"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
