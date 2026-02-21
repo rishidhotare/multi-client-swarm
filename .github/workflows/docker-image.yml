@@ -83,7 +83,7 @@ jobs:
           script: |
             set -e
 
-            cd /home/${{ secrets.EC2_USER }}/multi-client-swarm
+            cd /home/rushi/multi-client-swarm
 
             echo "Deploying stack: $STACK_NAME"
             echo "Using Image Tag: $IMAGE_TAG"
