@@ -17,7 +17,6 @@ services:
     image: traefik:v2.10
     ports:
       - "80:80"
-      - "443:443"
     networks:
       - app-network
     volumes:
@@ -33,7 +32,6 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=app-network
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --certificatesresolvers.myresolver.acme.tlschallenge=true
