@@ -9,10 +9,6 @@ volumes:
   client-a-data:
   client-b-data:
 
-configs:
-  traefik-config:
-    file: ./traefik.yml
-
 services:
 
   traefik:
