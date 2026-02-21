@@ -3,10 +3,9 @@ version: "3.9"
 networks:
   app-network:
     driver: overlay
-    attachable: true   # ✅ Important for Swarm
+    attachable: true
 
 volumes:
-  traefik-certificates:
   client-a-data:
   client-b-data:
 
@@ -21,7 +20,6 @@ services:
       - app-network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-certificates:/letsencrypt
     deploy:
       placement:
         constraints:
@@ -32,12 +30,6 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=app-network
       - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --certificatesresolvers.myresolver.acme.tlschallenge=true
-      - --certificatesresolvers.myresolver.acme.email=your@email.com
-      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-
 
   # ---------------- CLIENT A ----------------
   client-a:
@@ -52,20 +44,13 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`client-b.rushidapps.com`)"
-        - "traefik.http.routers.client-a.entrypoints=websecure"
-        - "traefik.http.routers.client-a.tls.certresolver=myresolver"
+        - "traefik.http.routers.client-a.rule=PathPrefix(`/client-a`)"
+        - "traefik.http.routers.client-a.entrypoints=web"
         - "traefik.http.services.client-a.loadbalancer.server.port=3000"
+        - "traefik.http.middlewares.client-a-strip.stripprefix.prefixes=/client-a"
+        - "traefik.http.routers.client-a.middlewares=client-a-strip"
 
   # ---------------- CLIENT B ----------------
   client-b:
@@ -80,25 +65,16 @@ services:
       replicas: 3
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.client-a.rule=Host(`client-b.rushidapps.com`)"
-        - "traefik.http.routers.client-b.entrypoints=websecure"
-        - "traefik.http.routers.client-b.tls.certresolver=myresolver"
+        - "traefik.http.routers.client-b.rule=PathPrefix(`/client-b`)"
+        - "traefik.http.routers.client-b.entrypoints=web"
         - "traefik.http.services.client-b.loadbalancer.server.port=8000"
+        - "traefik.http.middlewares.client-b-strip.stripprefix.prefixes=/client-b"
+        - "traefik.http.routers.client-b.middlewares=client-b-strip"
 
 secrets:
   client_a_db:
     external: true
   client_b_db:
     external: true
-
-
