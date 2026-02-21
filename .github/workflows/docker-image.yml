@@ -78,7 +78,7 @@ jobs:
           script: |
             set -e
 
-            cd /home/${{ secrets.EC2_USER }}/multi-client-swarm
+            cd /home/rushi/multi-client-swarm
 
             echo "Deploying stack: $STACK_NAME"
             echo "Using Image Tag: $IMAGE_TAG"
@@ -95,7 +95,7 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:$IMAGE_TAG
 
             # Deploy updated stack
-            docker stack deploy -c docker-stack.yaml $STACK_NAME
+            docker stack deploy -c docker-stack.yaml multi-client
 
             # Wait for services to initialize
             sleep 10
