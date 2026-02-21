@@ -4,18 +4,39 @@ on:
   push:
     branches:
       - main
+      - dev
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # ===============================
+      # CHECKOUT CODE
+      # ===============================
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Debug - List Files
-        run: ls -R
+      # ===============================
+      # SET IMAGE TAG (SHORT SHA)
+      # ===============================
+      - name: Set Image Tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+      # ===============================
+      # SET STACK NAME BASED ON BRANCH
+      # ===============================
+      - name: Set Environment Variables
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "STACK_NAME=multi-client" >> $GITHUB_ENV
+          else
+            echo "STACK_NAME=multi-client-dev" >> $GITHUB_ENV
+          fi
+
+      # ===============================
+      # LOGIN TO DOCKERHUB
+      # ===============================
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -23,23 +44,23 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       # ===============================
-      # BUILD CLIENT A
+      # BUILD & PUSH CLIENT A
       # ===============================
       - name: Build & Push Client A
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest ./client-a-node
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-a:$IMAGE_TAG ./client-a-node
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-a:$IMAGE_TAG
 
       # ===============================
-      # BUILD CLIENT B
+      # BUILD & PUSH CLIENT B
       # ===============================
       - name: Build & Push Client B
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest ./client-b-python
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/client-b:$IMAGE_TAG ./client-b-python
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/client-b:$IMAGE_TAG
 
       # ===============================
-      # COPY STACK FILE
+      # COPY STACK FILE TO EC2
       # ===============================
       - name: Copy docker-stack.yaml to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -48,7 +69,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           source: "docker-stack.yaml"
-          target: "/home/rushi/multi-client-swarm"
+          target: "/home/${{ secrets.EC2_USER }}/multi-client-swarm"
 
       # ===============================
       # DEPLOY TO SWARM
@@ -61,20 +82,16 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             set -e
-            cd /home/rushi/multi-client-swarm
 
-            echo "Removing old stack..."
-            docker stack rm multi-client || true
-            sleep 15
+            cd /home/${{ secrets.EC2_USER }}/multi-client-swarm
 
-            echo "Pulling latest images..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-a:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/client-b:latest
+            echo "Deploying stack: $STACK_NAME"
+            echo "Using Image Tag: $IMAGE_TAG"
 
-            echo "Deploying stack..."
-            docker stack deploy -c docker-stack.yaml multi-client
+            export IMAGE_TAG=${IMAGE_TAG}
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
 
-            echo "Waiting for services..."
+            docker stack deploy -c docker-stack.yaml $STACK_NAME
+
             sleep 10
-
             docker service ls
